@@ -76,7 +76,7 @@ max of (latmax-latmin) * (lonmax-lonmin)
 """
 JOB_MAX_EXTENT = 2500000  # default export max extent in sq km
 
-HOSTNAME = os.getenv('HOSTNAME', 'export.hotosm.org')
+HOSTNAME = os.getenv('HOSTNAME', 'localhost')
 
 # Comment if you are not running behind proxy
 USE_X_FORWARDED_HOST = bool(os.getenv('USE_X_FORWARDED_HOST'))
@@ -84,7 +84,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Hosts/domain names that are valid for this site
 # See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = ['exports-prod.hotosm.org', HOSTNAME]
+ALLOWED_HOSTS = ['exports-prod.hotosm.org', 'export.hotosm.org', HOSTNAME, '127.0.0.1']
 
 """
 Overpass Element limit

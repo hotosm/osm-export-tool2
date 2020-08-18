@@ -13,7 +13,7 @@ from jobs.models import Job, HDXExportRegion, SavedFeatureSelection, PartnerExpo
 from django.contrib import admin
 from django.contrib.gis.admin import GeoModelAdmin
 from django.utils.safestring import mark_safe
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 
 class ExportRun(models.Model):
     """
@@ -22,8 +22,8 @@ class ExportRun(models.Model):
     id = models.AutoField(primary_key=True, editable=False)
     uid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
-    job = models.ForeignKey(Job, related_name='runs')
-    user = models.ForeignKey(User, related_name="runs", default=0)
+    job = models.ForeignKey(Job, related_name='runs', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name="runs", default=0, on_delete=models.SET_DEFAULT)
 
     status = models.CharField(
         blank=True, max_length=20,
@@ -62,7 +62,7 @@ class ExportTask(models.Model):
     id = models.AutoField(primary_key=True, editable=False)
     uid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=50)
-    run = models.ForeignKey(ExportRun, related_name='tasks')
+    run = models.ForeignKey(ExportRun, related_name='tasks', on_delete=models.CASCADE)
     status = models.CharField(blank=True, max_length=20, db_index=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
@@ -94,13 +94,12 @@ class ExportTask(models.Model):
 
             download_url = os.path.join(settings.EXPORT_MEDIA_ROOT,str(self.run.uid), fname)
             return {
-                "filename":fname,
+                "filename": fname,
                 "filesize_bytes": filesize_bytes,
-                "download_url":download_url,
-                "absolute_download_url":settings.HOSTNAME + download_url
+                "download_url": download_url,
+                "absolute_download_url": settings.HOSTNAME + download_url
             }
         return map(fdownload, self.filenames)
-
 
 
 class ExportRunAdmin(admin.ModelAdmin):
@@ -137,7 +136,6 @@ class ExportRunsInline(admin.TabularInline):
                         args=(obj.id,)))
 
 
-
 class JobAdmin(GeoModelAdmin):
     """
     Admin model for editing Jobs in the admin interface.
@@ -153,17 +151,21 @@ class JobAdmin(GeoModelAdmin):
     readonly_fields=('simplified_geom_raw',)
     inlines = [ExportRunsInline]
 
+
 class HDXExportRegionAdmin(admin.ModelAdmin):
     raw_id_fields = ("job",)
 
+
 class PartnerExportRegionAdmin(admin.ModelAdmin):
     raw_id_fields = ('job',)
+
 
 class SavedFeatureSelectionAdmin(admin.ModelAdmin):
     raw_id_fields = ("user",)
     search_fields = ['name','description']
     list_filter = ('pinned',)
     list_display = [ 'name', 'description']
+
 
 admin.site.register(Job, JobAdmin)
 admin.site.register(HDXExportRegion, HDXExportRegionAdmin)

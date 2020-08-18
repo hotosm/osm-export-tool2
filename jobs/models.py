@@ -32,9 +32,10 @@ LOG = logging.getLogger(__name__)
 MAX_TILE_COUNT = 10000
 
 DIR = os.path.dirname(os.path.abspath(__file__))
-RASTER = rasterio.open(os.path.join(DIR,'osm_nodes.tif'))
+RASTER = rasterio.open(os.path.join(DIR, 'osm_nodes.tif'))
 
 Group.add_to_class('is_partner', models.BooleanField(null=False, default=False))
+
 
 def get_geodesic_area(geom):
     bbox = geom.envelope
@@ -99,7 +100,7 @@ def validate_aoi(aoi):
     result = check_extent(aoi,settings.OVERPASS_API_URL)
     if not result.valid:
         raise ValidationError(result.message,params=result.params)
-    
+
 def validate_mbtiles(job):
     if "mbtiles" in job["export_formats"]:
         if job.get("mbtiles_source") is None:
@@ -127,21 +128,20 @@ def validate_mbtiles(job):
             )
 
 class Job(models.Model):
-    """ 
+    """
     Database model for an 'Export'.
     Immutable, except in the case of HDX Export Regions.
     """
     id = models.AutoField(primary_key=True, editable=False)
     uid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False, db_index=True)
-    user = models.ForeignKey(User, related_name='owner')
+    user = models.ForeignKey(User, related_name='owner', on_delete=models.CASCADE)
     name = models.CharField(max_length=100, db_index=True, blank=False)
     description = models.CharField(max_length=1000, db_index=True, default='', blank=True)
     event = models.CharField(max_length=100, db_index=True, default='', blank=True)
     export_formats = ArrayField(models.CharField(max_length=10),validators=[validate_export_formats],blank=False)
     published = models.BooleanField(default=False, db_index=True)
     the_geom = models.GeometryField(verbose_name='Uploaded geometry', srid=4326, blank=False)
-    simplified_geom = models.GeometryField(verbose_name='Simplified geometry', srid=4326, blank=True,null=True)
-    objects = models.GeoManager()
+    simplified_geom = models.GeometryField(verbose_name='Simplified geometry', srid=4326, blank=True, null=True)
     feature_selection = models.TextField(blank=False,validators=[validate_feature_selection])
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(default=timezone.now, editable=False)
@@ -183,10 +183,10 @@ class SavedFeatureSelection(models.Model):
     """ Mutable database record for a saved YAML configuration."""
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(default=timezone.now, editable=False)
-    user = models.ForeignKey(User)
-    name = models.CharField(max_length=100,db_index=True,blank=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100, db_index=True, blank=False)
     description = models.CharField(max_length=1000, db_index=True, default='', blank=True)
-    yaml = models.TextField(blank=False,validators=[validate_feature_selection])
+    yaml = models.TextField(blank=False, validators=[validate_feature_selection])
     public = models.BooleanField(default=False)
     deleted = models.BooleanField(default=False)
     uid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False, db_index=True)
@@ -194,6 +194,7 @@ class SavedFeatureSelection(models.Model):
 
     def __str__(self):
         return str(self.name)
+
 
 PERIOD_CHOICES = (
     ('6hrs', 'Every 6 hours'),
@@ -203,6 +204,7 @@ PERIOD_CHOICES = (
     ('disabled', 'Disabled'),
 )
 HOUR_CHOICES = zip(range(0, 24), range(0, 24))
+
 
 class RegionMixin:
     @property
@@ -286,14 +288,15 @@ class RegionMixin:
     def export_formats(self): # noqa
         return self.job.export_formats
 
+
 class PartnerExportRegion(models.Model, RegionMixin):
     schedule_period = models.CharField(
         blank=False, max_length=10, default="disabled", choices=PERIOD_CHOICES)
     schedule_hour = models.IntegerField(
         blank=False, choices=HOUR_CHOICES, default=0)
-    job = models.ForeignKey(Job, null=True)
+    job = models.ForeignKey(Job, null=True, on_delete=models.SET_NULL)
     # the owning group, which determines access control.
-    group = models.ForeignKey(Group)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE)
     deleted = models.BooleanField(default=False)
     planet_file = models.BooleanField(default=False)
 
@@ -325,13 +328,13 @@ class HDXExportRegion(models.Model, RegionMixin): # noqa
         blank=False, choices=HOUR_CHOICES, default=0)
     deleted = models.BooleanField(default=False)
     # a job should really be required, but that interferes with DRF validation lifecycle.
-    job = models.ForeignKey(Job, null=True, related_name='hdx_export_region_set')
+    job = models.ForeignKey(Job, null=True, related_name='hdx_export_region_set', on_delete=models.SET_NULL)
     is_private = models.BooleanField(default=False)
     locations = ArrayField(
         models.CharField(blank=False, max_length=32), null=True)
-    license = models.CharField(max_length=32, null=True,blank=True)
+    license = models.CharField(max_length=32, null=True, blank=True)
     subnational = models.BooleanField(default=True)
-    extra_notes = models.TextField(null=True,blank=True)
+    extra_notes = models.TextField(null=True, blank=True)
     planet_file = models.BooleanField(default=False)
 
     class Meta: # noqa
@@ -341,8 +344,10 @@ class HDXExportRegion(models.Model, RegionMixin): # noqa
         return self.name + " (prefix: " + self.dataset_prefix + ")"
 
     def clean(self):
-        if self.job and not re.match(r'^[a-z0-9-_]+$',self.job.name):
-            raise ValidationError({'dataset_prefix':"Invalid dataset_prefix: {0}".format(self.job.name)})
+        if self.job and not re.match(r'^[a-z0-9-_]+$', self.job.name):
+            raise ValidationError(
+                {'dataset_prefix': "Invalid dataset_prefix: {0}".format(self.job.name)}
+            )
 
     @property
     def buffer_aoi(self): # noqa

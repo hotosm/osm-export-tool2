@@ -63,8 +63,7 @@ class JobGeomSerializer(serializers.ModelSerializer):
         fields = ('the_geom', )
 
 class JobSerializer(serializers.ModelSerializer):
-    user = UserSerializer(
-        read_only=True, default=serializers.CurrentUserDefault())
+    user = UserSerializer(default=serializers.CurrentUserDefault())
 
     class Meta:
         model = Job
@@ -161,7 +160,7 @@ class PartnerExportRegionSerializer(serializers.ModelSerializer):  # noqa
         # check on creation that i'm a member of the group
         if not self.context['request'].user.groups.filter(name=region_dict['group'].name).exists():
             raise serializers.ValidationError({'group':'You are not a member of this group.'})
-            
+
         with transaction.atomic():
             job.save()
             region_dict['job'] = job

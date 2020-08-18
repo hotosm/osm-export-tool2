@@ -27,7 +27,7 @@ from django.views.decorators.http import require_http_methods
 from django.core.exceptions import ValidationError as DjangoValidationError
 from jobs.models import HDXExportRegion, PartnerExportRegion, Job, SavedFeatureSelection
 from rest_framework import filters, permissions, status, viewsets
-from rest_framework.decorators import detail_route
+from rest_framework.decorators import action
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.serializers import ValidationError
@@ -121,13 +121,15 @@ class JobViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        if Job.objects.filter(created_at__gt=timezone.now()-timedelta(minutes=60),user=self.request.user).count() > 5:
-            raise ValidationError({"the_geom":["You are rate limited to 5 exports per hour."]})
+        if Job.objects.filter(
+            created_at__gt=timezone.now() - timedelta(minutes=60), user=self.request.user
+        ).count() > 5:
+            raise ValidationError({"the_geom": ["You are rate limited to 5 exports per hour."]})
         job = serializer.save()
         task_runner = ExportTaskRunner()
         task_runner.run_task(job_uid=str(job.uid))
 
-    @detail_route()
+    @action(detail=True)
     def geom(self, request, uid=None):
         job = Job.objects.get(uid=uid)
         geom_serializer = JobGeomSerializer(job)

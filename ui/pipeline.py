@@ -10,7 +10,7 @@ from django.contrib.sessions.models import Session
 from django.core import signing
 from django.core.mail import EmailMultiAlternatives
 from django.core.signing import BadSignature
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.shortcuts import redirect
 from django.template.loader import get_template
 
@@ -32,15 +32,18 @@ def require_email(strategy, backend, request, details, user=None, is_new=False, 
 
 def email_validation(strategy, backend, code, partial_token):  # pragma: no cover
     """
-    Send an email with an embedded verification code and the necessary details to restore the required session
-    elements to complete the verification and sign-in, regardless of what browser the user completes the
-    verification from.
+    Send an email with an embedded verification code and the necessary details to
+    restore the required session elements to complete the verification and sign-in,
+    regardless of what browser the user completes the verification from.
     """
     signature = signing.dumps({"session_key": strategy.session.session_key, "email": code.email},
                               key=settings.SECRET_KEY)
-    verifyURL = "{0}?verification_code={1}&signature={2}".format(
+    verifyURL = "{0}?verification_code={1}&signature={2}&partial_token={3}".format(
         reverse('osm:complete', args=(backend.name,)),
-        code.code, signature)
+        code.code,
+        signature,
+        partial_token
+    )
     verifyURL = strategy.request.build_absolute_uri(verifyURL)
     ctx = {
             'verifyUrl': verifyURL,
@@ -48,7 +51,9 @@ def email_validation(strategy, backend, code, partial_token):  # pragma: no cove
     subject = "Please verify your email address"
     text = get_template('osm/verify_osm_email.txt').render(ctx)
     html = get_template('osm/verify_osm_email.html').render(ctx)
-    msg = EmailMultiAlternatives(subject, text, to=[code.email], from_email="HOT Export Tool <exports@hotosmmail.org>")
+    msg = EmailMultiAlternatives(
+        subject, text, to=[code.email], from_email="HOT Export Tool <exports@hotosmmail.org>"
+    )
     msg.attach_alternative(html, "text/html")
     msg.send()
 
@@ -90,5 +95,6 @@ def partial_pipeline_data(backend, user=None, *args, **kwargs):  # pragma: no co
             return xargs, xkwargs
         else:
             backend.strategy.clean_partial_pipeline()
+
 
 utils.partial_pipeline_data = partial_pipeline_data
